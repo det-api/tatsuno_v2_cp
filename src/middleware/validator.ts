@@ -22,6 +22,9 @@ export const validateToken = async (
   next: NextFunction
 ) => {
   try {
+    let mode = await get("mode");
+    if (mode == "dead") throw new Error("Your are out of service");
+
     let token = req.headers.authorization?.split(" ")[1];
     if (!token) {
       return next(new Error("invalid token"));
@@ -36,6 +39,7 @@ export const validateToken = async (
     req.body.user = user;
     next();
   } catch (e) {
+    next(e)
   }
 };
 export const validateToken2 = async (

@@ -21,27 +21,23 @@ export const loginUser = async ({
   email: string;
   password: string;
 }) => {
-  try {
-    let user = await userModel
-      .findOne({ email })
-      .populate("roles permits")
-      .select("-__v");
+  let user = await userModel
+    .findOne({ email })
+    .populate("roles permits")
+    .select("-__v");
 
-    if (!user || !compass(password, user.password)) {
-      throw new Error("Creditial Error");
-    }
-
-    let userObj: Partial<UserDocument> = user.toObject();
-    userObj["token"] = createToken(userObj);
-
-    delete userObj.password;
-    set(userObj._id, userObj);
-    set("stationNo" , userObj.stationNo)
-    set("stationId" , userObj.stationId)
-    return userObj;
-  } catch (e) {
-    throw new Error(e);
+  if (!user || !compass(password, user.password)) {
+    throw new Error("Creditial Error");
   }
+
+  let userObj: Partial<UserDocument> = user.toObject();
+  userObj["token"] = createToken(userObj);
+
+  delete userObj.password;
+  set(userObj._id, userObj);
+  set("stationNo", userObj.stationNo);
+  set("stationId", userObj.stationId);
+  return userObj;
 };
 
 export const getUser = async (query: FilterQuery<UserDocument>) => {

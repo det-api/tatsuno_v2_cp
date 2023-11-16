@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 
-import fMsg from "../utils/helper";
+import fMsg, { get } from "../utils/helper";
 import { getPermit } from "../service/permit.service";
 import { getRole } from "../service/role.service";
 import {
@@ -21,6 +21,9 @@ export const registerUserHandler = async (
   next: NextFunction
 ) => {
   try {
+    let mode = await get("mode");
+    if (mode == "dead") throw new Error("Your are out of service");
+
     let result = await registerUser(req.body);
     fMsg(res, "user registered", result);
   } catch (e) {
@@ -34,6 +37,9 @@ export const loginUserHandler = async (
   next: NextFunction
 ) => {
   try {
+    let mode = await get("mode");
+    if (mode == "dead") throw new Error("Your are out of service");
+
     let result = await loginUser(req.body);
     fMsg(res, "logined users", result);
   } catch (e) {

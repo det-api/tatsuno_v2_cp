@@ -33,6 +33,24 @@ const app = express();
 app.use(fileUpload());
 app.use(cors({ origin: "*" }));
 
+
+// const io = require("socket.io-client");
+
+// let socket = io.connect("cloud socket url");
+
+// socket.on("connect", () => {
+
+//   // Send data to the Raspberry Pi server
+//   socket.emit("test", "Hello from local");
+
+//   // Receive data from the Raspberry Pi server
+//   socket.on("test", (data) => {
+//   });
+// });
+
+// socket.on("disconnect", () => {
+// });
+
 const server = require("http").createServer(app);
 
 client.on("connect", connect);
@@ -96,11 +114,6 @@ app.use("/api/daily-price", dailyPriceRoute);
 
 app.use("/api/auto-permit", autoPermitRoute);
 
-// app.use("/api/test", localToDeviceRoute);
-
-// app.use("/api/customer", coustomerRoute);
-// app.use("/api/debt", debtRoute);
-// app.use("/api/initial-setup", initialSetupRoute);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   err.status = err.status || 409;
