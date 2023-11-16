@@ -17,12 +17,11 @@ import { detailSaleUpdateByDevice } from "./service/detailSale.service";
 import dailyPriceRoute from "./router/dailyPrice.routes";
 import dbConnect, { client, connect } from "./utils/connect";
 import blinkLed, { lowLed } from "./connection/ledBlink";
-import initialSetupRoute from "./router/initialSetup.routes";
-import { rp } from "./migrations/migrator";
+import { rp, stationIdSet } from "./migrations/migrator";
 import { getLastPrice } from "./service/dailyPrice.service";
 import { get, mqttEmitter, set } from "./utils/helper";
 import autoPermitRoute from "./router/autoPermit.routes";
-import { autoPermitGet } from "./service/autoPermit.service";
+import { autoPermitGet, autoPermitUpdate } from "./service/autoPermit.service";
 import {
   apController,
   apFinalDropController,
@@ -32,24 +31,6 @@ import {
 const app = express();
 app.use(fileUpload());
 app.use(cors({ origin: "*" }));
-
-
-// const io = require("socket.io-client");
-
-// let socket = io.connect("cloud socket url");
-
-// socket.on("connect", () => {
-
-//   // Send data to the Raspberry Pi server
-//   socket.emit("test", "Hello from local");
-
-//   // Receive data from the Raspberry Pi server
-//   socket.on("test", (data) => {
-//   });
-// });
-
-// socket.on("disconnect", () => {
-// });
 
 const server = require("http").createServer(app);
 
@@ -72,13 +53,15 @@ client.on("message", async (topic, message) => {
     console.log(topic, message);
     let mode = await get("mode");
     detailSaleUpdateByDevice(data[3], message.toString());
-    if (mode == "allow") await apFinalDropController(data[3], message.toString()) ;
+    if (mode == "allow")
+      await apFinalDropController(data[3], message.toString());
   }
 
   if (data[2] == "livedata") {
     let mode = await get("mode");
     liveDataChangeHandler(message.toString());
-    if (mode == "allow") await apPPController(data[3], message.toString().substring(0, 2));
+    if (mode == "allow")
+      await apPPController(data[3], message.toString().substring(0, 2));
   }
 
   if (data[2] == "pricereq") {
@@ -88,10 +71,34 @@ client.on("message", async (topic, message) => {
 
 const port = config.get<number>("port");
 const host = config.get<string>("host");
+const wsServerUrl = config.get<string>("wsServerUrl");
 
 // //mongodb connection
 
 dbConnect();
+
+const io = require("socket.io-client");
+
+let socket = io.connect(wsServerUrl);
+
+socket.on("connect", async () => {
+  let stationId = await get("stationId");
+
+  if (!stationId) {
+    await stationIdSet();
+    stationId = get(stationId);
+  }
+  // Send data to the Raspberry Pi server
+  socket.emit("checkMode", stationId);
+
+  socket.on(stationId, async (data) => {
+    let result = await autoPermitUpdate(data.mode);
+  });
+});
+
+socket.on("disconnect", () => {
+  console.log("server disconnect");
+});
 
 app.get("/", (req: Request, res: Response, next: NextFunction) => {
   res.send("ok");
@@ -114,7 +121,6 @@ app.use("/api/daily-price", dailyPriceRoute);
 
 app.use("/api/auto-permit", autoPermitRoute);
 
-
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   err.status = err.status || 409;
   res.status(err.status).json({
@@ -126,7 +132,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 const defaultData = async () => {
   // lowLed();
 
-  // await rp();
+  await rp();
 };
 
 defaultData();
