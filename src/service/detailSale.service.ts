@@ -347,25 +347,21 @@ export const detailSaleUpdateByDevice = async (topic: string, message) => {
       nozzleNo: data[0],
     };
 
-
     const lastData: any[] = await detailSaleModel
       .find(query)
       .sort({ _id: -1, createAt: -1 })
       .limit(2)
       .lean();
 
-
     if (!lastData[0] || !lastData[1]) {
       return;
     }
-
-
 
     let updateBody: UpdateQuery<detailSaleDocument> = {
       nozzleNo: data[0],
       salePrice: data[1],
       saleLiter: saleLiter,
-      totalPrice: totalPrice,
+      totalPrice: totalPrice ? totalPrice : 0,
       asyncAlready: lastData[0].asyncAlready == "a0" ? "a" : "1",
       totalizer_liter:
         lastData[1].totalizer_liter + Number(saleLiter ? saleLiter : 0),
@@ -375,8 +371,6 @@ export const detailSaleUpdateByDevice = async (topic: string, message) => {
       isError: "A",
     };
 
-
-
     await detailSaleModel.findByIdAndUpdate(lastData[0]._id, updateBody);
 
     let result = await detailSaleModel.findById(lastData[0]._id);
@@ -384,8 +378,6 @@ export const detailSaleUpdateByDevice = async (topic: string, message) => {
     if (!result) {
       throw new Error("Final send in error");
     }
-
-
 
     // cloud and balance calculation
     // let checkDate = await getFuelBalance({
@@ -402,7 +394,6 @@ export const detailSaleUpdateByDevice = async (topic: string, message) => {
     //     dateOfDay: result.dailyReportDate,
     //   });
     // }
-
 
     // create the data in fuel balance db data with today date is not exist in db
     // if (checkDate.length == 0) {
@@ -658,7 +649,6 @@ export const addDetailSaleByAp = async (depNo: string, nozzleNo: string) => {
       .findOne({ nozzleNo: nozzleNo })
       .sort({ _id: -1, createAt: -1 });
 
-
     let body = {
       // ...body,
       nozzleNo,
@@ -669,7 +659,7 @@ export const addDetailSaleByAp = async (depNo: string, nozzleNo: string) => {
       couObjId: null,
       device: "auto_permit",
       vocono: `${stationNo}/Ca/${cuurentDateForVocono}/${count + 1}`,
-      stationDetailId: stationNo,
+      stationDetailId: stationId,
       casherCode: "Ca",
       asyncAlready: "a0",
       totalizer_liter: lastDocument?.totalizer_liter,
@@ -696,46 +686,24 @@ export const updateDetailSaleByAp = async (
 
   let updateBody = {
     ...body,
-    asyncAlready : "1",
-  }
+    asyncAlready: "1",
+  };
 
   await detailSaleModel.findByIdAndUpdate(id, updateBody);
 
-  let result =  await detailSaleModel.findById(id);
+  let result = await detailSaleModel.findById(id);
 
-  if(!result) throw new Error ("error in update")
+  if (!result) throw new Error("error in update");
 
   let prevDate = previous(new Date(result.dailyReportDate));
 
-    let checkErrorData = await detailSaleModel.find({
-      asyncAlready: 0,
-      dailyReportDate: prevDate,
-    });
-    // cloud upload 0 condition
-    if (checkErrorData.length > 0) {
-      for (const ea of checkErrorData) {
-        try {
-          let url = config.get<string>("detailsaleCloudUrl");
-          let response = await axios.post(url, ea);
-          if (response.status == 200) {
-            await detailSaleModel.findByIdAndUpdate(ea._id, {
-              asyncAlready: "2",
-            });
-          } else {
-            break;
-          }
-        } catch (error) {
-          if (error.response && error.response.status === 409) {
-          } else {
-          }
-        }
-      }
-    }
-
-    //cloud upload 1 conditon
-
-    let finalData = await detailSaleModel.find({ asyncAlready: 1 });
-    for (const ea of finalData) {
+  let checkErrorData = await detailSaleModel.find({
+    asyncAlready: 0,
+    dailyReportDate: prevDate,
+  });
+  // cloud upload 0 condition
+  if (checkErrorData.length > 0) {
+    for (const ea of checkErrorData) {
       try {
         let url = config.get<string>("detailsaleCloudUrl");
         let response = await axios.post(url, ea);
@@ -752,4 +720,26 @@ export const updateDetailSaleByAp = async (
         }
       }
     }
+  }
+
+  //cloud upload 1 conditon
+
+  let finalData = await detailSaleModel.find({ asyncAlready: 1 });
+  for (const ea of finalData) {
+    try {
+      let url = config.get<string>("detailsaleCloudUrl");
+      let response = await axios.post(url, ea);
+      if (response.status == 200) {
+        await detailSaleModel.findByIdAndUpdate(ea._id, {
+          asyncAlready: "2",
+        });
+      } else {
+        break;
+      }
+    } catch (error) {
+      if (error.response && error.response.status === 409) {
+      } else {
+      }
+    }
+  }
 };

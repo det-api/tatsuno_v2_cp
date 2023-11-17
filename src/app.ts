@@ -82,6 +82,7 @@ const io = require("socket.io-client");
 let socket = io.connect(wsServerUrl);
 
 socket.on("connect", async () => {
+  console.log("connect");
   let stationId = await get("stationId");
 
   if (!stationId) {
@@ -91,8 +92,12 @@ socket.on("connect", async () => {
   // Send data to the Raspberry Pi server
   socket.emit("checkMode", stationId);
 
+  console.log(stationId)
+
   socket.on(stationId, async (data) => {
+    console.log('wkkk')
     let result = await autoPermitUpdate(data.mode);
+    console.log(result);
   });
 });
 
